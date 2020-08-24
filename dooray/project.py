@@ -17,6 +17,7 @@ class DoorayProject:
         self._login: Login = Login.current()
         self._current_driver = self._login.webdriver()  # login 한 브라우저창을 재활용한다.
         self._project_lists = self.__project_info_extract()
+        self._issue_list_seed_url = self._login.url() + "/v2/wapi/projects/!{}/posts"
 
     def __enter__(self):
         return self
@@ -50,11 +51,23 @@ class DoorayProject:
         """
         return self._project_lists
 
-    def get_issue_list(self, project_id, size=30):
+    def get_issue_list(self, project_id, **params):
+        """
+        특정 프로젝트의 이슈 정보를 가져온다.
+
+        :param project_id: 프로젝트 아이디  (get_project_list 에서 알수 있다)
+        :param params: 필터링 조건을 넣을수 있다.
+        :return: 이슈 정보
+        """
         try:
             d = self._current_driver
-            url = "{}/v2/wapi/projects/!{}/posts?order=-postUpdatedAt&page=0&size={}".format(
-                self._login.url(), project_id, size)
+            url = self._issue_list_seed_url.format(project_id)
+            base_param = dict(order="postUpdatedAt", page=0, size=30)
+            base_param.update(params)
+            url += "?"
+            for p in base_param:
+                url += "{}={}&".format(p, base_param[p])
+
             d.get(url)
             text = d.find_element_by_tag_name("pre").get_attribute("innerHTML")
             el = json.loads(text)
