@@ -5,6 +5,7 @@ import logging
 
 _thread_local = threading.local()
 
+
 class Login:
     def __init__(self, user_id, password, driver_path, domain="naverunion"):
         self._user_id = user_id
