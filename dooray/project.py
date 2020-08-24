@@ -11,9 +11,11 @@ IssueInfo = namedtuple('IssueInfo', 'id seq title user cc reg_date close_date st
 
 _status_code = dict(working="진행중", closed="완료", registered="등록")
 
+
 class DoorayProject:
     def __init__(self):
         self._login: Login = Login.current()
+        self._current_driver = self._login.webdriver()  # login 한 브라우저창을 재활용한다.
         self._project_lists = self.__project_info_extract()
 
     def __enter__(self):
@@ -21,7 +23,7 @@ class DoorayProject:
 
     def __project_info_extract(self):
         try:
-            d = self._login.webdriver()
+            d = self._current_driver
             d.get("{}/v2/wapi/project-views/1".format(self._login.url()))
             text = d.find_element_by_tag_name("pre").get_attribute("innerHTML")
             el = json.loads(text)
@@ -50,7 +52,7 @@ class DoorayProject:
 
     def get_issue_list(self, project_id, size=30):
         try:
-            d = self._login.webdriver()
+            d = self._current_driver
             url = "{}/v2/wapi/projects/!{}/posts?order=-postUpdatedAt&page=0&size={}".format(
                 self._login.url(), project_id, size)
             d.get(url)
@@ -70,9 +72,9 @@ class DoorayProject:
                     else:
                         raise Exception("Unknown CC type.")
 
-                r = IssueInfo(id=row["id"], seq=row["number"], title=row["subject"], user=user,
-                                   cc=",".join(cc), reg_date=row["createdAt"], close_date=row["dueDate"],
-                                   status=_status_code.get(row["workflowClass"]))
+                r = IssueInfo(id=row["id"], seq=row["number"], title=row["subject"], user=user, cc=",".join(cc),
+                              reg_date=row["createdAt"], close_date=row["dueDate"],
+                              status=_status_code.get(row["workflowClass"]))
                 rsb.append(r)
         finally:
             if self._login:
