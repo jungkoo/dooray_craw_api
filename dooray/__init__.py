@@ -3,9 +3,7 @@ from selenium import webdriver
 import threading
 import logging
 
-# 로그인 정보는 thread local 형태로 저장해서 여러번 입력 하지 않아도 정보를 활용 할 수 있도록 하자
 _thread_local = threading.local()
-
 
 class Login:
     def __init__(self, user_id, password, driver_path, domain="naverunion"):
@@ -15,6 +13,8 @@ class Login:
         self._driver_path = driver_path
         self._open_web_driver = []
         self._headless = True
+        self._current_window = None
+        self._current_window_cache = {}
         _thread_local.login = self
 
     def headless(self, headless=True):
@@ -43,8 +43,11 @@ class Login:
 
     def close(self):
         for ow in self._open_web_driver:
-            if ow:
-                ow.close()
+            try:
+                if ow:
+                    ow.close()
+            except Exception:
+                pass
 
     @staticmethod
     def current():
