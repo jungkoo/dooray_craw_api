@@ -3,6 +3,7 @@ from selenium import webdriver
 import threading
 import logging
 
+# 로그인 정보는 thread local 형태로 저장해서 여러번 입력 하지 않아도 정보를 활용 할 수 있도록 하자
 _thread_local = threading.local()
 
 
@@ -12,11 +13,17 @@ class Login:
         self._password = password
         self._domain = domain
         self._driver_path = driver_path
+        self._open_web_driver = []
+        self._headless = True
         _thread_local.login = self
 
-    def webdriver(self, headless=True):
+    def headless(self, headless=True):
+        self._headless = headless
+        return self
+
+    def webdriver(self):
         option = webdriver.ChromeOptions()
-        option.headless = headless
+        option.headless = self._headless
         option.add_argument('--lang=ko-KR')
         option.add_argument('--user-agent="Mozilla/5.0 (Windows NT 4.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) '
                             'Chrome/37.0.2049.0 Safari/537.36"')
@@ -28,10 +35,16 @@ class Login:
         d.find_element_by_css_selector("input[type='text'][autocomplete='new-password']").send_keys(self._user_id)
         d.find_element_by_css_selector("input[type='password'][autocomplete='new-password']").send_keys(self._password)
         d.find_element_by_css_selector("button[type=\"submit\"]").click()
+        self._open_web_driver.append(d)
         return d
 
     def url(self, post_url=""):
         return "https://{}.dooray.com{}".format(self._domain, post_url)
+
+    def close(self):
+        for ow in self._open_web_driver:
+            if ow:
+                ow.close()
 
     @staticmethod
     def current():
