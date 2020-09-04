@@ -4,12 +4,13 @@ from dooray.email import DoorayEmail
 from dooray.project import DoorayProject
 from datetime import datetime
 import os
+import csv
 
 # CONFIGURATION
 EMAIL = "아이디@도메인.dooray.com"
 USER_ID = "아이"
 PASSWORD = "암호"
-TO_EMAIL = "이슈 리포트 받은 경"
+TO_EMAIL = "이슈 리포트 받은 이메일"
 DRIVER_PATH = "크롬드라이버 경로"
 
 # SETUP
@@ -20,14 +21,14 @@ email.subject("[이슈정리] {} : 과거 90일 이슈 리스트".format(today))
 email.contents("첨부파일을 참고해주세요.\n이슈 : {} ~ 90일이전 미완료 이슈를 리스트업합니다".format(today))
 
 
-def project_list_string(prev_day=90):
-    result = "프로젝트\t이슈번호\t제목\t등록자\t담당자\t등록일\t마감일\t상태\t경과일\t진행상황\n"
+def project_rows(prev_day=90, header=False):
+    if header:
+        yield ["프로젝트", "t이슈번호", "제목", "등록자", "담당자", "등록일", "마감일", "상태", "경과일", "진행상황"]
     with DoorayProject() as projects:
         project = projects.get_project_list()
         for p in project:
             # 등록 90일 + 등록/진행중
-            all_issue = projects.get_issue_list(project_id=p.id,
-                                             createdAt="prev-{}d".format(prev_day),)
+            all_issue = projects.get_issue_list(project_id=p.id, createdAt="prev-{}d".format(prev_day),)
             open_issue = [_x for _x in filter(lambda x: x.status != "완료", all_issue)]
             if len(open_issue) <= 0:
                 continue
@@ -40,30 +41,30 @@ def project_list_string(prev_day=90):
                 elif day_count < 90:
                     comment = "주의"
 
-                data = dict(
-                    project_title=p.title,
-                    iss_seq=issue.seq,
-                    iss_title=issue.title,
-                    iss_user=issue.user,
-                    iss_cc=issue.cc or "-",
-                    iss_reg_date=(issue.reg_date or "")[0:10],
-                    iss_close_date=(issue.close_date or "-")[0:10],
-                    iss_date_count=day_count,
-                    iss_status=issue.status,
-                    iss_comment=comment
-                )
-                result += "{project_title}\t{iss_seq}\t{iss_title}\t{iss_user}\t{iss_cc}\t{iss_reg_date}" \
-                          "\t{iss_close_date}\t{iss_status}\t{iss_date_count}\t{iss_comment}\n".format(**data)
-        return result
+                project_title = p.title
+                iss_seq = issue.seq
+                iss_title = issue.title
+                iss_user = issue.user
+                iss_cc = issue.cc or "-"
+                iss_reg_date = (issue.reg_date or "")[0:10]
+                iss_close_date = (issue.close_date or "-")[0:10]
+                iss_date_count = day_count
+                iss_status = issue.status
+                iss_comment = comment
+
+                yield [project_title, iss_seq, iss_title, iss_user, iss_cc, iss_reg_date, iss_close_date,
+                       iss_status, iss_date_count, iss_comment]
 
 
 if __name__ == "__main__":
     # open issue - file create
-    msg = project_list_string()
     file = "open-issue-{}.csv".format(today)
-    fp = open(file, "wt")
-    fp.write(msg)
+    fp = open(file, "wt", encoding='euc_kr', newline='')
+    writer = csv.writer(fp)
+    for r in project_rows(header=True):
+        writer.writerow(r)
     fp.close()
+
     # email send
     email.attach_file(fp.name)
     email.send(TO_EMAIL)
